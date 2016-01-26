@@ -19,7 +19,7 @@ def load_current_resource
   @current_resource = Chef::Resource::OpennmsSendEvent.new(@new_resource.name)
   @current_resource.name(@new_resource.name)
   @current_resource.uei(@new_resource.uei)
-  @current_resource.parameters(@new_resource.parameters)
+  @current_resource.parameters(@new_resource.parameters) unless @new_resource.parameters.nil?
 end
 
 def send_event
@@ -32,6 +32,11 @@ def send_event
     end
   end
   cmd = "#{cmd} #{new_resource.uei}"
+  unless new_resource.parameters.nil?
+    if new_resource.parameters[0] == 'daemonName Eventd'
+      cmd = "#{cmd}; #{send_event} uei.opennms.org/internal/eventsConfigChange"
+    end
+  end
   bash "send_event_#{new_resource.name}" do
     code cmd
     user 'root'

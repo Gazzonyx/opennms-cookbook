@@ -29,47 +29,37 @@ bash 'import OpenNMS GPG key' do
   not_if 'rpm -qai "*gpg*" | grep -q OpenNMS'
 end
 
-if node['opennms']['stable']
-  yum_repository 'opennms-stable-common' do
-    description 'RPMs Common to All OpenNMS Architectures RPMs (stable)'
-    baseurl node['yum']['opennms-stable-common']['baseurl']
-    mirrorlist node['yum']['opennms-stable-common']['url']
-    gpgkey 'file:///etc/yum.repos.d/OPENNMS-GPG-KEY'
-    failovermethod node['yum']['opennms-stable-common']['failovermethod']
-    includepkgs node['yum']['opennms-stable-common']['includepkgs']
-    exclude node['yum']['opennms-stable-common']['exclude']
-    action :create
-  end
-  yum_repository 'opennms-stable-rhel6' do
-    description 'RedHat Enterprise Linux 6.x and CentOS 6.x RPMs (stable)'
-    baseurl node['yum']['opennms-stable-rhel6']['baseurl']
-    mirrorlist node['yum']['opennms-stable-rhel6']['url']
-    gpgkey 'file:///etc/yum.repos.d/OPENNMS-GPG-KEY'
-    includepkgs node['yum']['opennms-stable-rhel6']['includepkgs']
-    exclude node['yum']['opennms-stable-rhel6']['exclude']
-    action :create
-  end
-else
-  yum_repository 'opennms-snapshot-common' do
-      description 'RPMs Common to All OpenNMS Architectures RPMs (stable)'
-      baseurl node['yum']['opennms-snapshot-common']['baseurl']
-      mirrorlist node['yum']['opennms-snapshot-common']['url']
-      gpgkey 'file:///etc/yum.repos.d/OPENNMS-GPG-KEY'
-      failovermethod node['yum']['opennms-snapshot-common']['failovermethod']
-      includepkgs node['yum']['opennms-snapshot-common']['includepkgs']
-      exclude node['yum']['opennms-snapshot-common']['exclude']
-      gpgcheck false
-      action :create
-  end
-  yum_repository 'opennms-snapshot-rhel6' do
-    description 'RedHat Enterprise Linux 6.x and CentOS 6.x RPMs (stable)'
-    baseurl node['yum']['opennms-snapshot-rhel6']['baseurl']
-    mirrorlist node['yum']['opennms-snapshot-rhel6']['url']
-    gpgkey 'file:///etc/yum.repos.d/OPENNMS-GPG-KEY'
-    includepkgs node['yum']['opennms-snapshot-rhel6']['includepkgs']
-    exclude node['yum']['opennms-snapshot-rhel6']['exclude']
-      gpgcheck false
-    action :create
+def yum_attr(branch, platform, attr)
+  node['yum']["opennms-#{branch}-#{platform}"][attr]
+end
+
+branches = ['stable', 'obsolete', 'snapshot']
+platforms = ['common', 'rhel6']
+branches.each do |branch|
+  platforms.each do |platform|
+    skip = false
+    Chef::Log.debug "branch is '#{branch}' and stable is #{node['opennms']['stable']}"
+    if ((branch == 'stable' && !node['opennms']['stable']) ||
+      (branch == 'snapshot' && node['opennms']['stable']))
+      skip = true 
+    end
+    unless skip
+      bu = yum_attr(branch, platform, 'baseurl')
+      ml = yum_attr(branch, platform, 'url')
+      fom = yum_attr(branch, platform, 'failovermethod')
+      inc_pkgs = yum_attr(branch, platform, 'includepkgs')
+      ex = yum_attr(branch, platform, 'exclude')
+      yum_repository "opennms-#{branch}-#{platform}" do
+        description "#{platform} OpenNMS RPMs (#{branch})"
+        baseurl bu unless bu.nil? || '' == bu
+        mirrorlist ml unless ml.nil? || '' == ml
+        gpgkey 'file:///etc/yum.repos.d/OPENNMS-GPG-KEY'
+        failovermethod fom unless fom.nil? | '' == fom
+        includepkgs inc_pkgs unless inc_pkgs.nil? || '' == inc_pkgs
+        exclude ex unless ex.nil? || '' == ex
+        action :create
+      end
+    end
   end
 end
 
